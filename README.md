@@ -40,42 +40,16 @@ npm install
 npm run build
 ```
 
-## Setup
+## Usage with Claude Desktop, Cursor etc
 
-Create a configuration file (e.g., `config.json`) that defines the MCP servers you want to chain:
-
-```json
-{
-  "mcpServers": {
-    "browser": {
-      "command": "npx",
-      "args": ["@modelcontextprotocol/browser"],
-      "env": {}
-    },
-    "figma": {
-      "command": "npx",
-      "args": ["@jayarrowz/mcp-figma", "--figma-token", "your_figma_api_key"],
-      "env": {}
-    },
-    "xpath": {
-      "command": "npx",
-      "args": ["@jayarrowz/xpath"],
-      "env": {}
-    }
-  }
-}
-```
-
-## Usage with Claude Desktop
-
-Add the following to your `claude_desktop_config.json`:
+Add the following to your `claude_desktop_config.json` or `mcp.json`:
 
 ```json
 {
   "mcpServers": {
     "mcp_tool_chainer": {
       "command": "node",
-      "args": ["/path/to/mcp-tool-chainer/index.js", "/path/to/config.json"],
+      "args": ["/path/to/mcp-tool-chainer/index.js", "`claude_desktop_config.json` or `mcp.json`"],
       "env": {}
     }
   }
@@ -104,23 +78,6 @@ const result = await callTool("mcp_chain", {
 });
 ```
 
-### Chaining Multiple Browser Tools
-
-```javascript
-// Fetch multiple websites in sequence
-const result = await callTool("mcp_chain", { 
-  "mcpPath": [
-    {
-      "toolName": "mcp_browser_mcp_fetch_url",
-      "toolArgs": "{\"url\": \"https://example.com\"}"
-    },
-    {
-      "toolName": "mcp_browser_mcp_fetch_url",
-      "toolArgs": "{\"url\": \"https://github.com\"}"
-    }
-  ]
-});
-```
 
 ## Benefits
 
