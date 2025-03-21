@@ -26,7 +26,17 @@ This server implements the following MCP tools:
 * Node.js (v16 or later)
 * npm or yarn
 
-### Installing the package
+### Installing from npm
+
+```bash
+# Install globally
+npm install -g @thirdstrandstudio/mcp-tool-chainer
+
+# Or use with npx directly
+npx -y @thirdstrandstudio/mcp-tool-chainer
+```
+
+### Installing from source
 
 ```bash
 # Clone the repository
@@ -45,6 +55,22 @@ npm run build
 ENSURE IT IS THE LAST MCP TO RUN OTHERWISE IT WILL HAVE TO RUN DISCOVERY AGAIN
 
 Add the following to your `claude_desktop_config.json` or `mcp.json`:
+
+### If installed from npm globally
+
+```json
+{
+  "mcpServers": {
+    "mcp_tool_chainer": {
+      "command": "npx",
+      "args": ["-y", "@thirdstrandstudio/mcp-tool-chainer", "`claude_desktop_config.json` or `mcp.json`"],
+      "env": {}
+    }
+  }
+}
+```
+
+### If installed from source
 
 ```json
 {
