@@ -43,6 +43,7 @@ npm run build
 ## Usage with Claude Desktop, Cursor etc
 
 ENSURE IT IS THE LAST MPC TO RUN OTHERWISE IT WILL HAVE TO RUN DISCOVERY AGAIN
+
 Add the following to your `claude_desktop_config.json` or `mcp.json`:
 
 ```json
