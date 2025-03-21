@@ -90,6 +90,9 @@ Add the following to your `claude_desktop_config.json` or `mcp.json`:
 
 Replace `/path/to/mcp-tool-chainer` with the actual path to your repository.
 
+![image](https://github.com/user-attachments/assets/667468c4-aeba-4ea1-b65a-fd7a5922a23b)
+
+
 ## Examples
 
 ### Chain Browser and XPath Tools
