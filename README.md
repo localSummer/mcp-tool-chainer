@@ -4,6 +4,9 @@
 
 An MCP (Model Context Protocol) server that chains calls to other MCP tools, reducing token usage by allowing sequential tool execution with result passing.
 
+![image](https://github.com/user-attachments/assets/ee8a044a-6922-4656-ba5d-a5c56aceff9a)
+
+
 ## Features
 
 - Chain multiple MCP tools together in sequence
