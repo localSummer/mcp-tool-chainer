@@ -393,24 +393,6 @@ async function main() {
         const configFile = process.argv[2];
         config = JSON.parse(fs.readFileSync(configFile, 'utf8')) as McpConfig;
         await startDiscovery();
-
-        //delay 5s
-        await new Promise(resolve => setTimeout(resolve, 5000));
-
-        const result = await chainTools(
-            [
-                {
-                    toolName: "browser_mcp_fetch_url",
-                    toolArgs: "{\"url\": \"https://api.smartformations.ai/business?page=1&max=10\"}",
-                },
-                {
-                    toolName: "memory_server_create_entities",
-                    toolArgs: "{\"entities\": [{\"name\": \"Business API Data\", \"entityType\": \"API Data\", \"observations\": [\"CHAIN_RESULT\"]}]}",
-                    inputPath: "$.count",
-                }
-            ]
-        );
-
         console.log("Starting MCP Tool Chainer Server...");
         const transport = new StdioServerTransport();
         await server.connect(transport);
