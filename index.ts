@@ -71,27 +71,28 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
         // Create client for the current server
         const { client, tool } = await createToolClient(toolName);
         try {
-            // Define the input to use - either current chain result or the next input from inputs array
-            let toolInput = i === 0 ? mcpPath[i].toolArgs : mcpPath[i].toolArgs.replace(CHAIN_RESULT, JSON.stringify(result).slice(1, -1));
-            
-            // Apply inputPath if specified and we're not on the first element (which doesn't have previous result)
-            if (inputPath && i > 0) {
+            // Process the result with inputPath if specified (for all steps except first since no result yet)
+            let processedResult = result;
+            if (inputPath && i > 0 && result) {
                 try {
-                    // Parse the input as JSON to apply JsonPath
-                    const jsonInput = JSON.parse(toolInput);
+                    // Try to parse the result as JSON if it's a string
+                    const jsonResult = typeof result === 'string' ? JSON.parse(result) : result;
                     // Extract the specified path
-                    const extractedInput = JSONPath({ path: inputPath, json: jsonInput });
+                    const extractedInput = JSONPath({ path: inputPath, json: jsonResult });
                     
                     // If extractedInput is an array with one item, use that item
                     // This handles the common JSONPath behavior of returning arrays
-                    const processedInput = extractedInput.length === 1 ? extractedInput[0] : extractedInput;
-                    
-                    // Replace the input with the extracted data
-                    toolInput = JSON.stringify(processedInput);
+                    processedResult = extractedInput.length === 1 ? extractedInput[0] : extractedInput;
                 } catch (error) {
-                    console.warn(`Failed to apply inputPath '${inputPath}'. Input may not be valid JSON. Using original input.`);
+                    console.warn(`Failed to apply inputPath '${inputPath}'. Input may not be valid JSON. Using original result.`);
+                    // Keep the original result
                 }
             }
+
+            // Define the input to use - either current chain result or the next input from inputs array
+            let toolInput = i === 0 
+                ? mcpPath[i].toolArgs 
+                : mcpPath[i].toolArgs.replace(CHAIN_RESULT, JSON.stringify(processedResult).slice(1, -1));
 
             // Call the tool with the input
             const toolResponse = await client.callTool({
