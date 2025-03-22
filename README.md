@@ -12,6 +12,7 @@ Designed to solve [https://github.com/modelcontextprotocol/specification/issues/
 
 - Chain multiple MCP tools together in sequence
 - Pass results from one tool as input to another tool using `CHAIN_RESULT` placeholder
+- Filter and extract specific data using JsonPath with `inputPath` and `outputPath` parameters
 - Automatic tool discovery from configured MCP servers
 - Minimal token usage compared to individual tool calls
 
@@ -113,12 +114,47 @@ const result = await callTool("mcp_chain", {
 });
 ```
 
+### Using JsonPath with InputPath and OutputPath
+
+```javascript
+// Fetch a webpage, extract specific content with XPath, then extract part of the result
+const result = await callTool("mcp_chain", { 
+  "mcpPath": [
+    {
+      "toolName": "mcp_fetch_fetch",
+      "toolArgs": "{\"url\": \"https://api.example.com/data\"}"
+    },
+    {
+      "toolName": "web_search",
+      "toolArgs": "{\"search_term\": CHAIN_RESULT}",
+      "inputPath": "$.results[0].title",     // Extract only the first result's title from previous output
+      "outputPath": "$.snippets[*].text"     // Extract only the text snippets from the search results
+    },
+    {
+      "toolName": "another_tool",
+      "toolArgs": "{\"content\": CHAIN_RESULT}"
+    }
+  ]
+});
+```
+
+## JsonPath Support
+
+MCP Tool Chainer now supports AWS Step Functions-style InputPath and OutputPath features:
+
+- **inputPath**: JsonPath expression to extract specific portions of the input before passing to a tool
+- **outputPath**: JsonPath expression to extract specific portions of the output before passing to the next tool
+
+These features work only when the input/output is valid JSON. If JsonPath extraction fails, the original input/output is used.
+
+For JsonPath syntax reference, see [JsonPath Syntax](https://goessner.net/articles/JsonPath/).
 
 ## Benefits
 
 - **Reduced Token Usage**: By chaining tools together, you avoid sending large intermediate results back to the LLM
 - **Simplified Workflows**: Create complex data processing pipelines with a single tool call
 - **Improved Performance**: Reduce latency by minimizing round-trips between the LLM and tools
+- **Precise Data Flow Control**: Extract only the data you need with JsonPath expressions
 
 ## Development
 

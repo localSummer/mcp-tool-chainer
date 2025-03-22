@@ -12,6 +12,7 @@ import { zodToJsonSchema } from 'zod-to-json-schema';
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import fs from 'fs';
+import { JSONPath } from 'jsonpath-plus';
 
 const CHAIN_RESULT = "CHAIN_RESULT";
 
@@ -52,27 +53,47 @@ interface ServerConfig {
 const McpChainRequestSchema = z.object({
     mcpPath: z.array(z.object({
         toolName: z.string().describe("The name of the tool to run .e.g. mcp_fetch_fetch, mcp_figma_figma_get_page_info, web_search, etc."),
-        toolArgs: z.string().describe(`The arguments to pass to the tool, use ${CHAIN_RESULT} if you want to pass the result of the previous tool`)
+        toolArgs: z.string().describe(`The arguments to pass to the tool, use ${CHAIN_RESULT} if you want to pass the result of the previous tool`),
+        inputPath: z.string().optional().describe("JsonPath to select portion of input before passing to tool if result of previous tool is json"),
+        outputPath: z.string().optional().describe("JsonPath to select portion of output before passing to next tool if result of tool is json")
     })).describe("The path of MCP servers to chain together")
 });
 
 
-async function chainTools(mcpPath: { toolName: string; toolArgs: string; }[]) {
+async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPath?: string; outputPath?: string; }[]) {
     // Implement MCP chaining
     let result: any = null;
 
     // Chain each MCP server
     for (let i = 0; i < mcpPath.length; i++) {
-        const toolName = mcpPath[i].toolName;
+        const { toolName, inputPath, outputPath } = mcpPath[i];
 
         // Create client for the current server
         const { client, tool } = await createToolClient(toolName);
         try {
-
             // Define the input to use - either current chain result or the next input from inputs array
-            const toolInput = i === 0 ? mcpPath[i].toolArgs : mcpPath[i].toolArgs.replace(CHAIN_RESULT, JSON.stringify(result).slice(1, -1));
+            let toolInput = i === 0 ? mcpPath[i].toolArgs : mcpPath[i].toolArgs.replace(CHAIN_RESULT, JSON.stringify(result).slice(1, -1));
+            
+            // Apply inputPath if specified and we're not on the first element (which doesn't have previous result)
+            if (inputPath && i > 0) {
+                try {
+                    // Parse the input as JSON to apply JsonPath
+                    const jsonInput = JSON.parse(toolInput);
+                    // Extract the specified path
+                    const extractedInput = JSONPath({ path: inputPath, json: jsonInput });
+                    
+                    // If extractedInput is an array with one item, use that item
+                    // This handles the common JSONPath behavior of returning arrays
+                    const processedInput = extractedInput.length === 1 ? extractedInput[0] : extractedInput;
+                    
+                    // Replace the input with the extracted data
+                    toolInput = JSON.stringify(processedInput);
+                } catch (error) {
+                    console.warn(`Failed to apply inputPath '${inputPath}'. Input may not be valid JSON. Using original input.`);
+                }
+            }
+
             // Call the tool with the input
-            //console.log("Calling tool:", tool.name, "with input:", toolInput);
             const toolResponse = await client.callTool({
                 name: tool.name,
                 arguments: JSON.parse(toolInput)
@@ -81,6 +102,22 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; }[]) {
             // Update current input for the next MCP in the chain
             if (toolResponse.content) {
                 result = JSON.parse(JSON.stringify(toolResponse.content))[0].text;
+                
+                // Apply outputPath if specified
+                if (outputPath) {
+                    try {
+                        // Try to parse the result as JSON
+                        const jsonResult = typeof result === 'string' ? JSON.parse(result) : result;
+                        // Extract the specified path
+                        const extractedOutput = JSONPath({ path: outputPath, json: jsonResult });
+                        
+                        // If extractedOutput is an array with one item, use that item
+                        // This handles the common JSONPath behavior of returning arrays
+                        result = extractedOutput.length === 1 ? extractedOutput[0] : extractedOutput;
+                    } catch (error) {
+                        console.warn(`Failed to apply outputPath '${outputPath}'. Output may not be valid JSON. Using original output.`);
+                    }
+                }
             } else {
                 throw new Error(`Empty response from MCP server ${i + 1}`);
             }
@@ -94,7 +131,6 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; }[]) {
     }
 
     return { content: [{ type: "text", text: result }] };
-
 }
 
 // Add a utility function to help with conversion

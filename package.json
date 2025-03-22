@@ -1,6 +1,6 @@
 {
   "name": "@thirdstrandstudio/mcp-tool-chainer",
-  "version": "0.7.1",
+  "version": "0.7.2",
   "description": "MCP server for cross MCP communication",
   "license": "MIT",
   "author": "Third Strand Studio (https://github.com/thirdstrandstudio)",
@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.7.0",
+    "jsonpath-plus": "^10.3.0",
     "zod": "^3.24.2",
     "zod-to-json-schema": "^3.24.4"
   },
