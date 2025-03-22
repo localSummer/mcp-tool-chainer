@@ -7,6 +7,10 @@ Designed to solve [https://github.com/modelcontextprotocol/specification/issues/
 
 ![image](https://github.com/user-attachments/assets/ee8a044a-6922-4656-ba5d-a5c56aceff9a)
 
+Step function like JSON paths:
+
+![image](https://github.com/user-attachments/assets/79ef5c3e-6166-4bc4-b571-e7b3176e777c)
+
 
 ## Features
 
