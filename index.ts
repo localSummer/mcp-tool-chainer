@@ -53,11 +53,29 @@ interface ServerConfig {
 const McpChainRequestSchema = z.object({
     mcpPath: z.array(z.object({
         toolName: z.string().describe("The name of the tool to run .e.g. mcp_fetch_fetch, mcp_figma_figma_get_page_info, web_search, etc."),
-        toolArgs: z.string().describe(`The arguments to pass to the tool, use ${CHAIN_RESULT} if you want to pass the result of the previous tool`),
+        toolArgs: z.string().describe(`The arguments to pass to the tool, use ${CHAIN_RESULT} if you want to pass the result of the previous tool, in a array it must be used as ["${CHAIN_RESULT}"]`),
         inputPath: z.string().optional().describe("JsonPath to select portion of input before passing to tool if result of previous tool is json"),
         outputPath: z.string().optional().describe("JsonPath to select portion of output before passing to next tool if result of tool is json")
     })).describe("The path of MCP servers to chain together")
 });
+
+function deepUnescape(str: string, depth: number = 0, maxDepth: number = 10) {
+    try {
+      // First try parsing directly
+      return JSON.parse(str);
+    } catch (e) {
+      // If that fails, it might be a string with escaped content
+      try {
+        return JSON.parse(`"${str.replace(/"/g, '\\"')}"`);
+      } catch (e2) {
+        // For deeply nested escaping, try to recursively unescape
+        if (str.includes('\\') && depth < maxDepth) {
+          return deepUnescape(str.replace(/\\(.)/g, '$1'), depth + 1, maxDepth);
+        }
+        return str;
+      }
+    }
+  }
 
 
 async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPath?: string; outputPath?: string; }[]) {
@@ -75,14 +93,21 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
             let processedResult = result;
             if (inputPath && i > 0 && result) {
                 try {
-                    // Try to parse the result as JSON if it's a string
+                    // If the text contains escaped characters that need unescaping
+                    if (typeof result === 'string') {
+                        result = deepUnescape(result.substring(result.indexOf('{')));                        
+                    }
+
+                    // Try to parse the result as JSON
                     const jsonResult = typeof result === 'string' ? JSON.parse(result) : result;
+
                     // Extract the specified path
                     const extractedInput = JSONPath({ path: inputPath, json: jsonResult });
-                    
+
                     // If extractedInput is an array with one item, use that item
                     // This handles the common JSONPath behavior of returning arrays
                     processedResult = extractedInput.length === 1 ? extractedInput[0] : extractedInput;
+                    processedResult = JSON.stringify(processedResult);
                 } catch (error) {
                     console.warn(`Failed to apply inputPath '${inputPath}'. Input may not be valid JSON. Using original result.`);
                     // Keep the original result
@@ -90,8 +115,8 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
             }
 
             // Define the input to use - either current chain result or the next input from inputs array
-            let toolInput = i === 0 
-                ? mcpPath[i].toolArgs 
+            let toolInput = i === 0
+                ? mcpPath[i].toolArgs
                 : mcpPath[i].toolArgs.replace(CHAIN_RESULT, JSON.stringify(processedResult).slice(1, -1));
 
             // Call the tool with the input
@@ -103,18 +128,24 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
             // Update current input for the next MCP in the chain
             if (toolResponse.content) {
                 result = JSON.parse(JSON.stringify(toolResponse.content))[0].text;
-                
+
                 // Apply outputPath if specified
                 if (outputPath) {
                     try {
+                        // If the text contains escaped characters that need unescaping
+                        if (typeof result === 'string') {
+                            result = deepUnescape(result.substring(result.indexOf('{')));
+                        }
+
                         // Try to parse the result as JSON
                         const jsonResult = typeof result === 'string' ? JSON.parse(result) : result;
                         // Extract the specified path
                         const extractedOutput = JSONPath({ path: outputPath, json: jsonResult });
-                        
+
                         // If extractedOutput is an array with one item, use that item
                         // This handles the common JSONPath behavior of returning arrays
                         result = extractedOutput.length === 1 ? extractedOutput[0] : extractedOutput;
+                        result = JSON.stringify(result);
                     } catch (error) {
                         console.warn(`Failed to apply outputPath '${outputPath}'. Output may not be valid JSON. Using original output.`);
                     }
@@ -362,6 +393,24 @@ async function main() {
         const configFile = process.argv[2];
         config = JSON.parse(fs.readFileSync(configFile, 'utf8')) as McpConfig;
         await startDiscovery();
+
+        //delay 5s
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        const result = await chainTools(
+            [
+                {
+                    toolName: "browser_mcp_fetch_url",
+                    toolArgs: "{\"url\": \"https://api.smartformations.ai/business?page=1&max=10\"}",
+                },
+                {
+                    toolName: "memory_server_create_entities",
+                    toolArgs: "{\"entities\": [{\"name\": \"Business API Data\", \"entityType\": \"API Data\", \"observations\": [\"CHAIN_RESULT\"]}]}",
+                    inputPath: "$.count",
+                }
+            ]
+        );
+
         console.log("Starting MCP Tool Chainer Server...");
         const transport = new StdioServerTransport();
         await server.connect(transport);
