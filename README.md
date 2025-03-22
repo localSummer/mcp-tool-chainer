@@ -5,7 +5,8 @@
 An MCP (Model Context Protocol) server that chains calls to other MCP tools, reducing token usage by allowing sequential tool execution with result passing.
 Designed to solve [https://github.com/modelcontextprotocol/specification/issues/215](https://github.com/modelcontextprotocol/specification/issues/215)
 
-![image](https://github.com/user-attachments/assets/ee8a044a-6922-4656-ba5d-a5c56aceff9a)
+![image](https://github.com/user-attachments/assets/3c0336a3-dd24-4dd9-88db-ac4704ee437e)
+
 
 Step function like JSON paths:
 
