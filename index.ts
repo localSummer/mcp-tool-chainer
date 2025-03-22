@@ -52,11 +52,11 @@ interface ServerConfig {
 
 const McpChainRequestSchema = z.object({
     mcpPath: z.array(z.object({
-        toolName: z.string().describe("The name of the tool to run .e.g. mcp_fetch_fetch, mcp_figma_figma_get_page_info, web_search, etc."),
-        toolArgs: z.string().describe(`The arguments to pass to the tool, use ${CHAIN_RESULT} if you want to pass the result of the previous tool, in a array it must be used as ["${CHAIN_RESULT}"]`),
-        inputPath: z.string().optional().describe("JsonPath to select portion of input before passing to tool if result of previous tool is json"),
-        outputPath: z.string().optional().describe("JsonPath to select portion of output before passing to next tool if result of tool is json")
-    })).describe("The path of MCP servers to chain together")
+        toolName: z.string().describe("The fully qualified name of the tool to execute in the chain (e.g., 'browser_mcp_fetch_url', 'memory_server_create_entities'). This must match an available tool name exactly."),
+        toolArgs: z.string().describe("JSON string containing the arguments for the tool. To pass the result from the previous tool in the chain, use the placeholder \"CHAIN_RESULT\". When passing to an array parameter, use [\"CHAIN_RESULT\"] format."),
+        inputPath: z.string().optional().describe("Optional JSONPath expression to extract specific data from the previous tool's result before passing to this tool. Example: '$.count' will extract just the count field from a JSON response."),
+        outputPath: z.string().optional().describe("Optional JSONPath expression to extract specific data from this tool's result before passing to the next tool in the chain. Example: '$.entities[0].name' would extract just the first entity name.")
+    })).describe("An ordered array of tool configurations that will be executed sequentially to form a processing chain. Each tool receives the (optionally filtered) output from the previous tool.")
 });
 
 function deepUnescape(str: string, depth: number = 0, maxDepth: number = 10) {
@@ -102,8 +102,8 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
                             // If parsing fails, attempt to extract JSON portion
                             const jsonStart = result.indexOf('{');
                             if (jsonStart >= 0) {
-                                result = result.substring(jsonStart);
-                                result = JSON.parse(result);
+                                result = result.substring(jsonStart)
+                                result = deepUnescape(result);
                             }
                         }
                     }
@@ -173,7 +173,6 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
             // Update current input for the next MCP in the chain
             if (toolResponse.content) {
                 result = JSON.parse(JSON.stringify(toolResponse.content))[0].text;
-
                 // Apply outputPath if specified
                 if (outputPath) {
                     try {
@@ -186,17 +185,17 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
                                 // If parsing fails, attempt to extract JSON portion
                                 const jsonStart = result.indexOf('{');
                                 if (jsonStart >= 0) {
-                                    result = deepUnescape(result.substring(jsonStart));
+                                    result = result.substring(jsonStart)
+                                    result = deepUnescape(result);
                                 }
                             }
                         }
-
+                        
                         // Ensure we have a valid JSON object
                         const jsonResult = typeof result === 'string' ? JSON.parse(result) : result;
 
                         // Extract the specified path
                         const extractedOutput = JSONPath({ path: outputPath, json: jsonResult });
-
                         // If extractedOutput is an array with one item, use that item
                         // This handles the common JSONPath behavior of returning arrays
                         result = extractedOutput.length === 1 ? extractedOutput[0] : extractedOutput;
