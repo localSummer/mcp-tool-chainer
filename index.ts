@@ -95,10 +95,19 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
                 try {
                     // If the text contains escaped characters that need unescaping
                     if (typeof result === 'string') {
-                        result = deepUnescape(result.substring(result.indexOf('{')));                        
+                        try {
+                            // Try to parse the result string as JSON
+                            result = JSON.parse(result);
+                        } catch (e) {
+                            // If parsing fails, attempt to extract JSON portion
+                            const jsonStart = result.indexOf('{');
+                            if (jsonStart >= 0) {
+                                result = deepUnescape(result.substring(jsonStart));
+                            }
+                        }
                     }
 
-                    // Try to parse the result as JSON
+                    // Ensure we have a valid JSON object
                     const jsonResult = typeof result === 'string' ? JSON.parse(result) : result;
 
                     // Extract the specified path
@@ -107,7 +116,14 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
                     // If extractedInput is an array with one item, use that item
                     // This handles the common JSONPath behavior of returning arrays
                     processedResult = extractedInput.length === 1 ? extractedInput[0] : extractedInput;
-                    processedResult = JSON.stringify(processedResult);
+                    
+                    // If processedResult is a primitive value, just use it directly
+                    if (typeof processedResult !== 'object' || processedResult === null) {
+                        processedResult = processedResult;
+                    } else {
+                        // Otherwise, stringify the object
+                        processedResult = JSON.stringify(processedResult);
+                    }
                 } catch (error) {
                     console.warn(`Failed to apply inputPath '${inputPath}'. Input may not be valid JSON. Using original result.`);
                     // Keep the original result
@@ -115,9 +131,25 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
             }
 
             // Define the input to use - either current chain result or the next input from inputs array
-            let toolInput = i === 0
-                ? mcpPath[i].toolArgs
-                : mcpPath[i].toolArgs.replace(CHAIN_RESULT, JSON.stringify(processedResult).slice(1, -1));
+            let toolInput;
+            if (i === 0) {
+                // First tool just uses its args directly
+                toolInput = mcpPath[i].toolArgs;
+            } else {
+                // For subsequent tools, replace CHAIN_RESULT with the processed result
+                if (typeof processedResult === 'string' && processedResult.startsWith('"') && processedResult.endsWith('"')) {
+                    // Handle the case where processedResult is already a JSON string of a primitive value
+                    // In this case, we need to use the value without the surrounding quotes
+                    const valueWithoutQuotes = processedResult.slice(1, -1);
+                    toolInput = mcpPath[i].toolArgs.replace(CHAIN_RESULT, valueWithoutQuotes);
+                } else if (typeof processedResult === 'string') {
+                    // This is a string that needs to be properly escaped in JSON
+                    toolInput = mcpPath[i].toolArgs.replace(CHAIN_RESULT, processedResult);
+                } else {
+                    // This is a primitive value (number, boolean, etc.) that can be stringified
+                    toolInput = mcpPath[i].toolArgs.replace(CHAIN_RESULT, String(processedResult));
+                }
+            }
 
             // Call the tool with the input
             const toolResponse = await client.callTool({
@@ -132,20 +164,36 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
                 // Apply outputPath if specified
                 if (outputPath) {
                     try {
-                        // If the text contains escaped characters that need unescaping
+                        // Process result similarly to inputPath
                         if (typeof result === 'string') {
-                            result = deepUnescape(result.substring(result.indexOf('{')));
+                            try {
+                                // Try to parse the result string as JSON
+                                result = JSON.parse(result);
+                            } catch (e) {
+                                // If parsing fails, attempt to extract JSON portion
+                                const jsonStart = result.indexOf('{');
+                                if (jsonStart >= 0) {
+                                    result = deepUnescape(result.substring(jsonStart));
+                                }
+                            }
                         }
 
-                        // Try to parse the result as JSON
+                        // Ensure we have a valid JSON object
                         const jsonResult = typeof result === 'string' ? JSON.parse(result) : result;
+                        
                         // Extract the specified path
                         const extractedOutput = JSONPath({ path: outputPath, json: jsonResult });
 
                         // If extractedOutput is an array with one item, use that item
                         // This handles the common JSONPath behavior of returning arrays
                         result = extractedOutput.length === 1 ? extractedOutput[0] : extractedOutput;
-                        result = JSON.stringify(result);
+                        
+                        // If result is a primitive value, stringify it properly
+                        if (typeof result !== 'object' || result === null) {
+                            result = JSON.stringify(result);
+                        } else {
+                            result = JSON.stringify(result);
+                        }
                     } catch (error) {
                         console.warn(`Failed to apply outputPath '${outputPath}'. Output may not be valid JSON. Using original output.`);
                     }
