@@ -61,21 +61,21 @@ const McpChainRequestSchema = z.object({
 
 function deepUnescape(str: string, depth: number = 0, maxDepth: number = 10) {
     try {
-      // First try parsing directly
-      return JSON.parse(str);
+        // First try parsing directly
+        return JSON.parse(str);
     } catch (e) {
-      // If that fails, it might be a string with escaped content
-      try {
-        return JSON.parse(`"${str.replace(/"/g, '\\"')}"`);
-      } catch (e2) {
-        // For deeply nested escaping, try to recursively unescape
-        if (str.includes('\\') && depth < maxDepth) {
-          return deepUnescape(str.replace(/\\(.)/g, '$1'), depth + 1, maxDepth);
+        // If that fails, it might be a string with escaped content
+        try {
+            return JSON.parse(`"${str.replace(/"/g, '\\"')}"`);
+        } catch (e2) {
+            // For deeply nested escaping, try to recursively unescape
+            if (str.includes('\\') && depth < maxDepth) {
+                return deepUnescape(str.replace(/\\(.)/g, '$1'), depth + 1, maxDepth);
+            }
+            return str;
         }
-        return str;
-      }
     }
-  }
+}
 
 
 async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPath?: string; outputPath?: string; }[]) {
@@ -102,7 +102,8 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
                             // If parsing fails, attempt to extract JSON portion
                             const jsonStart = result.indexOf('{');
                             if (jsonStart >= 0) {
-                                result = deepUnescape(result.substring(jsonStart));
+                                result = result.substring(jsonStart);
+                                result = JSON.parse(result);
                             }
                         }
                     }
@@ -116,7 +117,7 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
                     // If extractedInput is an array with one item, use that item
                     // This handles the common JSONPath behavior of returning arrays
                     processedResult = extractedInput.length === 1 ? extractedInput[0] : extractedInput;
-                    
+
                     // If processedResult is a primitive value, just use it directly
                     if (typeof processedResult !== 'object' || processedResult === null) {
                         processedResult = processedResult;
@@ -137,14 +138,26 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
                 toolInput = mcpPath[i].toolArgs;
             } else {
                 // For subsequent tools, replace CHAIN_RESULT with the processed result
-                if (typeof processedResult === 'string' && processedResult.startsWith('"') && processedResult.endsWith('"')) {
-                    // Handle the case where processedResult is already a JSON string of a primitive value
-                    // In this case, we need to use the value without the surrounding quotes
-                    const valueWithoutQuotes = processedResult.slice(1, -1);
-                    toolInput = mcpPath[i].toolArgs.replace(CHAIN_RESULT, valueWithoutQuotes);
-                } else if (typeof processedResult === 'string') {
-                    // This is a string that needs to be properly escaped in JSON
-                    toolInput = mcpPath[i].toolArgs.replace(CHAIN_RESULT, processedResult);
+                let isJson = false;
+                try {
+                    JSON.parse(processedResult);
+                    isJson = true;
+                } catch (e) {
+                    isJson = false;
+                    processedResult = JSON.stringify(processedResult).slice(1, -1);
+                }
+                if (typeof processedResult === 'string') {
+                    // Handle string replacements more robustly
+                    const jsonSafeResult = processedResult;
+
+                    if (mcpPath[i].toolArgs.includes(`"${CHAIN_RESULT}"`)) {
+                        // If CHAIN_RESULT is in quotes, replace the quoted version
+                        toolInput = mcpPath[i].toolArgs.replace(`"${CHAIN_RESULT}"`, `"${processedResult}"`);
+                    } else {
+                        // Otherwise replace just the token
+                        toolInput = mcpPath[i].toolArgs.replace(CHAIN_RESULT, jsonSafeResult);
+                    }
+
                 } else {
                     // This is a primitive value (number, boolean, etc.) that can be stringified
                     toolInput = mcpPath[i].toolArgs.replace(CHAIN_RESULT, String(processedResult));
@@ -180,20 +193,16 @@ async function chainTools(mcpPath: { toolName: string; toolArgs: string; inputPa
 
                         // Ensure we have a valid JSON object
                         const jsonResult = typeof result === 'string' ? JSON.parse(result) : result;
-                        
+
                         // Extract the specified path
                         const extractedOutput = JSONPath({ path: outputPath, json: jsonResult });
 
                         // If extractedOutput is an array with one item, use that item
                         // This handles the common JSONPath behavior of returning arrays
                         result = extractedOutput.length === 1 ? extractedOutput[0] : extractedOutput;
-                        
+
                         // If result is a primitive value, stringify it properly
-                        if (typeof result !== 'object' || result === null) {
-                            result = JSON.stringify(result);
-                        } else {
-                            result = JSON.stringify(result);
-                        }
+                        result = JSON.stringify(result);
                     } catch (error) {
                         console.warn(`Failed to apply outputPath '${outputPath}'. Output may not be valid JSON. Using original output.`);
                     }
