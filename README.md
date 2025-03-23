@@ -34,13 +34,13 @@ This server implements the following MCP tools:
 ### Prerequisites
 
 * Node.js (v16 or later)
-* npm or yarn
+* npm
 
 ### Installing from npm
 
 ```bash
 # Install globally
-npm install -g @thirdstrandstudio/mcp-tool-chainer
+npm install @thirdstrandstudio/mcp-tool-chainer
 
 # Or use with npx directly
 npx -y @thirdstrandstudio/mcp-tool-chainer
