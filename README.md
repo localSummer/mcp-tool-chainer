@@ -50,7 +50,7 @@ npx -y @thirdstrandstudio/mcp-tool-chainer
 
 ```bash
 # Clone the repository
-git clone https://github.com/JayArrowz/mcp-tool-chainer.git
+git clone https://github.com/thirdstrandstudio/mcp-tool-chainer.git
 cd mcp-tool-chainer
 
 # Install dependencies
