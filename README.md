@@ -39,7 +39,7 @@ This server implements the following MCP tools:
 ### Installing from npm
 
 ```bash
-# Install globally
+# Install
 npm install @thirdstrandstudio/mcp-tool-chainer
 
 # Or use with npx directly
@@ -50,7 +50,7 @@ npx -y @thirdstrandstudio/mcp-tool-chainer
 
 ```bash
 # Clone the repository
-git clone https://github.com/JayArrowz/mcp-tool-chainer.git
+git clone https://github.com/thirdstrandstudio/mcp-tool-chainer.git
 cd mcp-tool-chainer
 
 # Install dependencies
@@ -87,7 +87,7 @@ Add the following to your `claude_desktop_config.json` or `mcp.json`:
   "mcpServers": {
     "mcp_tool_chainer": {
       "command": "node",
-      "args": ["/path/to/mcp-tool-chainer/index.js", "`claude_desktop_config.json` or `mcp.json`"],
+      "args": ["/path/to/mcp-tool-chainer/dist/index.js", "`claude_desktop_config.json` or `mcp.json`"],
       "env": {}
     }
   }
@@ -168,10 +168,10 @@ For JsonPath syntax reference, see [JsonPath Syntax](https://goessner.net/articl
 npm install
 
 # Start the server
-node index.js config.json
+node dist/index.js config.json
 
 # List available tools
-node index.js config.json discover_tools
+node dist/index.js config.json discover_tools
 ```
 
 ## License
