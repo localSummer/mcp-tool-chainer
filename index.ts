@@ -449,10 +449,8 @@ async function main() {
         const configFile = process.argv[2];
         config = JSON.parse(fs.readFileSync(configFile, 'utf8')) as McpConfig;
         await startDiscovery();
-        console.log("Starting MCP Tool Chainer Server...");
         const transport = new StdioServerTransport();
         await server.connect(transport);
-        console.log("MCP Tool Chainer Server running on stdio");
     } catch (error) {
         console.error("Error during startup:", error);
         process.exit(1);
