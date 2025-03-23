@@ -34,7 +34,7 @@ This server implements the following MCP tools:
 ### Prerequisites
 
 * Node.js (v16 or later)
-* npm or yarn
+* npm
 
 ### Installing from npm
 
