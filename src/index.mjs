@@ -11,12 +11,10 @@ dotenv.config();
  */
 async function startServer() {
   // 获取配置文件路径（从命令行参数）
-  const configPath = process.argv[2];
-  
+  const configPath = process.env.MCP_CONFIG_PATH;
+
   if (!configPath) {
     logger.warn('警告: 未提供MCP配置文件路径');
-    logger.info('用法: node src/index.mjs <config-file-path>');
-    logger.info('示例: node src/index.mjs ~/.cursor/mcp.json');
     logger.info('将以受限模式启动（无工具链功能）...');
   } else {
     logger.info(`使用配置文件: ${configPath}`);

@@ -28,17 +28,18 @@ class LPToolChainerMCPServer {
       name: 'LP Tool Chainer MCP Server',
       version: packageJson.version,
       // 添加现代FastMCP配置选项
-      instructions: '这是一个MCP工具链服务器，提供跨MCP服务器的工具链接和执行功能。可以将多个MCP工具串联执行，支持数据过滤和结果传递。',
+      instructions:
+        '这是一个MCP工具链服务器，提供跨MCP服务器的工具链接和执行功能。可以将多个MCP工具串联执行，支持数据过滤和结果传递。',
       // 启用根路径管理
       roots: {
-        enabled: true
+        enabled: true,
       },
       // 配置健康检查（当使用HTTP传输时）
       health: {
         enabled: true,
         path: '/health',
-        message: 'MCP Tool Chainer Server is running'
-      }
+        message: 'MCP Tool Chainer Server is running',
+      },
     };
 
     this.server = new FastMCP(this.options);
@@ -65,10 +66,10 @@ class LPToolChainerMCPServer {
       if (configPath) {
         this.configPath = configPath;
         logger.info(`正在加载MCP配置文件: ${configPath}`);
-        
+
         // 加载MCP配置
         mcpConfigService.loadConfig(configPath);
-        
+
         // 启动工具发现
         logger.info('开始发现MCP工具...');
         await mcpClientManager.discoverTools();
@@ -96,7 +97,7 @@ class LPToolChainerMCPServer {
   async start(options = {}) {
     if (!this.initialized) {
       // 尝试从命令行参数获取配置文件路径
-      const configPath = process.argv[2] || options.configPath;
+      const configPath = options.configPath;
       await this.init(configPath);
     }
 
@@ -104,7 +105,7 @@ class LPToolChainerMCPServer {
     await this.server.start({
       transportType: 'stdio',
       timeout: 120000, // 2 minutes timeout (in milliseconds)
-      ...options
+      ...options,
     });
 
     return this;
@@ -117,11 +118,11 @@ class LPToolChainerMCPServer {
     try {
       // 关闭MCP客户端连接
       await mcpClientManager.close();
-      
+
       if (this.server) {
         await this.server.stop();
       }
-      
+
       logger.info('MCP Tool Chainer 服务器已停止');
     } catch (error) {
       logger.error(`停止服务器时出错: ${error.message}`);
@@ -145,13 +146,13 @@ class LPToolChainerMCPServer {
     }
 
     logger.info('重新初始化服务器...');
-    
+
     // 重置初始化状态
     this.initialized = false;
-    
+
     // 重新初始化
     await this.init(targetConfigPath);
-    
+
     logger.info('服务器重新初始化完成');
   }
 }

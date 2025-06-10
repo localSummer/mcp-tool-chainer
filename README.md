@@ -53,7 +53,7 @@ uv sync
 
 将以下内容添加到您的 `claude_desktop_config.json` 或 `mcp.json`:
 
-### 开发模式（推荐用于测试）
+### 配置
 
 ```json
 {
@@ -65,32 +65,13 @@ uv sync
         "@tools/lp-tool-chainer-mcp",
         "`claude_desktop_config.json` or `mcp.json`"
       ],
-      "env": {}
+      "env": {
+        "MCP_CONFIG_PATH": "/Users/wangxingwen/fe/fe-nlpt-pc/.cursor/mcp.json"
+      }
     }
   }
 }
 ```
-
-### 生产模式
-
-```json
-{
-  "mcpServers": {
-    "mcp_tool_chainer": {
-      "command": "node",
-      "args": [
-        "/path/to/mcp-tool-chainer/src/index.mjs",
-        "`claude_desktop_config.json` or `mcp.json`"
-      ],
-      "env": {}
-    }
-  }
-}
-```
-
-将 `/path/to/mcp-tool-chainer` 替换为您仓库的实际路径。
-
-**注意**: 配置文件路径（如 `claude_desktop_config.json` 或 `mcp.json`）必须作为最后一个参数提供。
 
 ![image](https://github.com/user-attachments/assets/667468c4-aeba-4ea1-b65a-fd7a5922a23b)
 
