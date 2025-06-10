@@ -5,6 +5,8 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import logger from './logger.mjs';
 import { registerTools } from './tools/index.mjs';
+import mcpConfigService from './services/mcp-config.mjs';
+import mcpClientManager from './services/mcp-client-manager.mjs';
 
 // Load environment variables
 dotenv.config();
@@ -29,6 +31,7 @@ class LPToolChainerMCPServer {
 
     this.server = new FastMCP(this.options);
     this.initialized = false;
+    this.configPath = null;
 
     // this.server.addResource({});
 
@@ -46,29 +49,54 @@ class LPToolChainerMCPServer {
   /**
    * Initialize the MCP server with necessary tools and routes
    */
-  async init() {
+  async init(configPath = null) {
     if (this.initialized) return;
 
-    // Pass the manager instance to the tool registration function
-    registerTools(this.server);
+    try {
+      // 如果提供了配置文件路径，加载MCP配置
+      if (configPath) {
+        this.configPath = configPath;
+        logger.info(`正在加载MCP配置文件: ${configPath}`);
+        
+        // 加载MCP配置
+        mcpConfigService.loadConfig(configPath);
+        
+        // 启动工具发现
+        logger.info('开始发现MCP工具...');
+        await mcpClientManager.discoverTools();
+        logger.info('MCP工具发现完成');
+      } else {
+        logger.warn('未提供MCP配置文件路径，工具链功能将受限');
+      }
 
-    this.initialized = true;
+      // Pass the manager instance to the tool registration function
+      registerTools(this.server);
 
-    return this;
+      this.initialized = true;
+      logger.info('MCP Tool Chainer 服务器初始化完成');
+
+      return this;
+    } catch (error) {
+      logger.error(`服务器初始化失败: ${error.message}`);
+      throw error;
+    }
   }
 
   /**
    * Start the MCP server
    */
-  async start() {
+  async start(options = {}) {
     if (!this.initialized) {
-      await this.init();
+      // 尝试从命令行参数获取配置文件路径
+      const configPath = process.argv[2] || options.configPath;
+      await this.init(configPath);
     }
 
     // Start the FastMCP server with increased timeout
     await this.server.start({
       transportType: 'stdio',
       timeout: 120000, // 2 minutes timeout (in milliseconds)
+      ...options
     });
 
     return this;
@@ -78,9 +106,45 @@ class LPToolChainerMCPServer {
    * Stop the MCP server
    */
   async stop() {
-    if (this.server) {
-      await this.server.stop();
+    try {
+      // 关闭MCP客户端连接
+      await mcpClientManager.close();
+      
+      if (this.server) {
+        await this.server.stop();
+      }
+      
+      logger.info('MCP Tool Chainer 服务器已停止');
+    } catch (error) {
+      logger.error(`停止服务器时出错: ${error.message}`);
     }
+  }
+
+  /**
+   * 获取配置文件路径
+   */
+  getConfigPath() {
+    return this.configPath;
+  }
+
+  /**
+   * 重新初始化服务器（用于配置更改）
+   */
+  async reinit(configPath = null) {
+    const targetConfigPath = configPath || this.configPath;
+    if (!targetConfigPath) {
+      throw new Error('没有配置文件路径可用于重新初始化');
+    }
+
+    logger.info('重新初始化服务器...');
+    
+    // 重置初始化状态
+    this.initialized = false;
+    
+    // 重新初始化
+    await this.init(targetConfigPath);
+    
+    logger.info('服务器重新初始化完成');
   }
 }
 

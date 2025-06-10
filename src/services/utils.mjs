@@ -1,20 +1,3 @@
-import {
-  FIGMA_TASK_FILE_NAME,
-  FIGMA_TASK_FILE_NAME_FLUTTER,
-  FIGMA_TASK_FILE_NAME_UNI2,
-  PROJECT_TYPE,
-  TASK_STATUS_OPTIONS,
-} from '../constant.mjs';
-
-/**
- * 检查给定的状态是否为有效的任务状态
- * @param {string} status - 要检查的状态
- * @returns {boolean} 如果状态有效，返回 true，否则返回 false
- */
-export function isValidTaskStatus(status) {
-  return TASK_STATUS_OPTIONS.includes(status);
-}
-
 /**
  * 构建 key 到 number 的映射关系
  * @param {Array} tasks - 任务列表
@@ -177,22 +160,4 @@ export const collectCompletedNumbers = (tasks) => {
     }
   });
   return completedNumbers;
-};
-
-/**
- * 根据项目类型获取任务文件名
- * @param {string} projectType - 项目类型
- * @returns {string} - 任务文件名
- */
-export const getTaskFileName = (projectType) => {
-  switch (projectType) {
-    case PROJECT_TYPE.REACT:
-      return FIGMA_TASK_FILE_NAME;
-    case PROJECT_TYPE.UNI2:
-      return FIGMA_TASK_FILE_NAME_UNI2;
-    case PROJECT_TYPE.FLUTTER:
-      return FIGMA_TASK_FILE_NAME_FLUTTER;
-    default:
-      return FIGMA_TASK_FILE_NAME;
-  }
 };
