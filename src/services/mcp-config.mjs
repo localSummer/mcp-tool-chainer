@@ -80,10 +80,10 @@ class McpConfigService {
 
   /**
    * 获取除当前工具链服务器外的所有服务器配置
-   * @param {string} excludeServerKey - 要排除的服务器键名，默认为'mcp_tool_chainer'
+   * @param {string} excludeServerKey - 要排除的服务器键名，默认为'lp-tool-chainer-mcp'
    * @returns {Object} 过滤后的服务器配置
    */
-  getOtherServers(excludeServerKey = 'mcp_tool_chainer') {
+  getOtherServers(excludeServerKey = 'lp-tool-chainer-mcp') {
     const servers = this.getMcpServers();
     const filteredServers = {};
 

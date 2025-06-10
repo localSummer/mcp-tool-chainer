@@ -1,6 +1,7 @@
 import { spawn } from 'child_process';
 import logger from '../logger.mjs';
 import mcpConfigService from './mcp-config.mjs';
+import packageJson from '../../package.json';
 
 /**
  * MCP客户端传输管理器
@@ -14,6 +15,109 @@ class McpClientTransport {
     this.messageHandlers = new Map();
     this.nextId = 1;
     this.connected = false;
+    // 添加消息缓冲区用于处理多行JSON
+    this.messageBuffer = '';
+    this.isBuffering = false;
+  }
+
+  /**
+   * 验证字符串是否为有效的JSON格式
+   * @param {string} str - 要验证的字符串
+   * @returns {boolean} 是否为有效JSON
+   */
+  isValidJSON(str) {
+    if (!str || typeof str !== 'string') return false;
+    
+    // 排除明显的错误消息模式
+    const errorPatterns = [
+      /^\[ERROR\]/,
+      /^\[WARN\]/,
+      /^\[INFO\]/,
+      /^\[DEBUG\]/,
+      /^Error:/,
+      /^Warning:/,
+      /^<!DOCTYPE/,
+      /^<html/
+    ];
+    
+    for (const pattern of errorPatterns) {
+      if (pattern.test(str.trim())) {
+        return false;
+      }
+    }
+    
+    // 基本的JSON格式检查
+    const trimmed = str.trim();
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+      return false;
+    }
+    
+    try {
+      JSON.parse(trimmed);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 安全的JSON解析函数
+   * @param {string} str - 要解析的JSON字符串
+   * @returns {Object|null} 解析结果或null
+   */
+  safeJSONParse(str) {
+    try {
+      return JSON.parse(str);
+    } catch (error) {
+      logger.debug(`JSON解析失败: ${error.message}, 内容: ${str.substring(0, 100)}...`);
+      return null;
+    }
+  }
+
+  /**
+   * 检查JSON字符串是否完整
+   * @param {string} str - JSON字符串
+   * @returns {boolean} 是否完整
+   */
+  isCompleteJSON(str) {
+    if (!str) return false;
+    
+    const trimmed = str.trim();
+    if (!trimmed) return false;
+    
+    // 简单的括号平衡检查
+    let braceCount = 0;
+    let bracketCount = 0;
+    let inString = false;
+    let escaped = false;
+    
+    for (let i = 0; i < trimmed.length; i++) {
+      const char = trimmed[i];
+      
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      
+      if (char === '\\') {
+        escaped = true;
+        continue;
+      }
+      
+      if (char === '"' && !escaped) {
+        inString = !inString;
+        continue;
+      }
+      
+      if (!inString) {
+        if (char === '{') braceCount++;
+        else if (char === '}') braceCount--;
+        else if (char === '[') bracketCount++;
+        else if (char === ']') bracketCount--;
+      }
+    }
+    
+    return braceCount === 0 && bracketCount === 0;
   }
 
   /**
@@ -37,7 +141,9 @@ class McpClientTransport {
         });
 
         this.process.stderr.on('data', (data) => {
-          logger.warn(`进程stderr: ${data.toString()}`);
+          const errorMessage = data.toString();
+          // 结构化处理stderr输出
+          this.handleStderr(errorMessage);
         });
 
         this.connected = true;
@@ -53,26 +159,94 @@ class McpClientTransport {
    */
   handleMessage(data) {
     try {
-      const lines = data.trim().split('\n');
+      // 将接收到的数据添加到缓冲区
+      this.messageBuffer += data;
+      
+      // 按行分割处理
+      const lines = this.messageBuffer.split('\n');
+      
+      // 保留最后一行（可能不完整）在缓冲区中
+      this.messageBuffer = lines.pop() || '';
+      
       for (const line of lines) {
-        if (line.trim()) {
-          const message = JSON.parse(line);
-          if (message.id && this.messageHandlers.has(message.id)) {
-            const handler = this.messageHandlers.get(message.id);
-            this.messageHandlers.delete(message.id);
-            handler(message);
-          }
-        }
+        this.processLine(line);
       }
+      
+      // 检查缓冲区中的内容是否为完整的JSON
+      if (this.messageBuffer.trim() && this.isCompleteJSON(this.messageBuffer)) {
+        this.processLine(this.messageBuffer);
+        this.messageBuffer = '';
+      }
+      
     } catch (error) {
       logger.error(`处理消息失败: ${error.message}`);
+      // 清空缓冲区以防止错误传播
+      this.messageBuffer = '';
+    }
+  }
+
+  /**
+   * 处理单行消息
+   * @param {string} line - 消息行
+   */
+  processLine(line) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine) return;
+    
+    // 跳过明显的错误日志
+    if (!this.isValidJSON(trimmedLine)) {
+      logger.debug(`跳过非JSON消息: ${trimmedLine.substring(0, 100)}...`);
+      return;
+    }
+    
+    // 安全解析JSON
+    const message = this.safeJSONParse(trimmedLine);
+    if (!message) {
+      logger.warn(`无法解析JSON消息: ${trimmedLine.substring(0, 100)}...`);
+      return;
+    }
+    
+    // 处理有效的JSON消息
+    if (message.id && this.messageHandlers.has(message.id)) {
+      const handler = this.messageHandlers.get(message.id);
+      this.messageHandlers.delete(message.id);
+      handler(message);
+    } else {
+      logger.debug(`收到未匹配的消息: ${JSON.stringify(message).substring(0, 100)}...`);
+    }
+  }
+
+  /**
+   * 处理stderr输出
+   * @param {string} errorMessage - 错误消息
+   */
+  handleStderr(errorMessage) {
+    const trimmed = errorMessage.trim();
+    if (!trimmed) return;
+    
+    // 分类处理不同类型的错误消息
+    if (trimmed.includes('[ERROR]')) {
+      logger.error(`MCP进程错误: ${trimmed}`);
+    } else if (trimmed.includes('[WARN]')) {
+      logger.warn(`MCP进程警告: ${trimmed}`);
+    } else if (trimmed.includes('[INFO]')) {
+      logger.info(`MCP进程信息: ${trimmed}`);
+    } else if (trimmed.includes('[DEBUG]')) {
+      logger.debug(`MCP进程调试: ${trimmed}`);
+    } else {
+      // 处理其他类型的错误输出
+      if (trimmed.toLowerCase().includes('error')) {
+        logger.error(`MCP进程未分类错误: ${trimmed}`);
+      } else {
+        logger.warn(`MCP进程输出: ${trimmed}`);
+      }
     }
   }
 
   /**
    * 发送消息到MCP服务器
    */
-  async send(message) {
+  async send(message, timeout = 30000) {
     return new Promise((resolve, reject) => {
       if (!this.connected || !this.process) {
         reject(new Error('传输未连接'));
@@ -82,7 +256,17 @@ class McpClientTransport {
       const id = this.nextId++;
       message.id = id;
 
+      // 设置超时处理
+      const timeoutId = setTimeout(() => {
+        if (this.messageHandlers.has(id)) {
+          this.messageHandlers.delete(id);
+          reject(new Error(`消息发送超时 (${timeout}ms): ${JSON.stringify(message).substring(0, 100)}...`));
+        }
+      }, timeout);
+
       this.messageHandlers.set(id, (response) => {
+        clearTimeout(timeoutId);
+        
         if (response.error) {
           reject(new Error(response.error.message || '未知错误'));
         } else {
@@ -90,8 +274,20 @@ class McpClientTransport {
         }
       });
 
-      const messageStr = JSON.stringify(message) + '\n';
-      this.process.stdin.write(messageStr);
+      try {
+        const messageStr = JSON.stringify(message) + '\n';
+        this.process.stdin.write(messageStr, (error) => {
+          if (error) {
+            clearTimeout(timeoutId);
+            this.messageHandlers.delete(id);
+            reject(new Error(`消息写入失败: ${error.message}`));
+          }
+        });
+      } catch (error) {
+        clearTimeout(timeoutId);
+        this.messageHandlers.delete(id);
+        reject(new Error(`消息序列化失败: ${error.message}`));
+      }
     });
   }
 
@@ -105,6 +301,9 @@ class McpClientTransport {
     }
     this.connected = false;
     this.messageHandlers.clear();
+    // 清理消息缓冲区
+    this.messageBuffer = '';
+    this.isBuffering = false;
   }
 }
 
@@ -116,8 +315,8 @@ class McpClientManager {
     this.clients = new Map();
     this.tools = new Map();
     this.serverInfo = {
-      name: 'mcp_tool_chainer',
-      version: '1.0.0',
+      name: 'lp-tool-chainer-mcp',
+      version: packageJson.version,
     };
   }
 

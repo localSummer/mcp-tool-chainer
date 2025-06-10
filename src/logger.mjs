@@ -67,11 +67,15 @@ function log(level, ...args) {
       coloredArgs = args;
     }
 
-    // Revert to console.log - FastMCP's context logger (context.log)
-    // is responsible for directing logs correctly (e.g., to stderr)
-    // during tool execution without upsetting the client connection.
-    // Logs outside of tool execution (like startup) will go to stdout.
-    console.log(prefix, ...coloredArgs);
+    // 根据日志级别选择合适的输出流
+    // 错误和警告输出到 stderr，其他输出到 stdout
+    if (level === 'error' || level === 'warn') {
+      // 错误和警告信息输出到 stderr
+      console.error(prefix, ...coloredArgs);
+    } else {
+      // 信息、调试和成功消息输出到 stdout
+      console.log(prefix, ...coloredArgs);
+    }
   }
 }
 

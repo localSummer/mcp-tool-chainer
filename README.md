@@ -58,13 +58,9 @@ uv sync
 ```json
 {
   "mcpServers": {
-    "mcp_tool_chainer": {
+    "lp-tool-chainer-mcp": {
       "command": "npx",
-      "args": [
-        "-y",
-        "@tools/lp-tool-chainer-mcp",
-        "`claude_desktop_config.json` or `mcp.json`"
-      ],
+      "args": ["-y", "@tools/lp-tool-chainer-mcp"],
       "env": {
         "MCP_CONFIG_PATH": "/Users/wangxingwen/fe/fe-nlpt-pc/.cursor/mcp.json"
       }
