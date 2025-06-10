@@ -2,7 +2,7 @@ import { JSONPath } from 'jsonpath-plus';
 import mcpClientManager from './mcp-client-manager.mjs';
 import logger from '../logger.mjs';
 
-const CHAIN_RESULT = "CHAIN_RESULT";
+const CHAIN_RESULT = 'CHAIN_RESULT';
 
 /**
  * 工具链执行器
@@ -30,7 +30,11 @@ class ChainExecutor {
       } catch (e2) {
         // 对于深度嵌套的转义，尝试递归解转义
         if (str.includes('\\') && depth < maxDepth) {
-          return this.deepUnescape(str.replace(/\\(.)/g, '$1'), depth + 1, maxDepth);
+          return this.deepUnescape(
+            str.replace(/\\(.)/g, '$1'),
+            depth + 1,
+            maxDepth
+          );
         }
         return str;
       }
@@ -85,7 +89,7 @@ class ChainExecutor {
     }
 
     let processedResult = chainResult;
-    
+
     // 判断结果是否为JSON
     let isJson = false;
     try {
@@ -109,7 +113,10 @@ class ChainExecutor {
       // 处理字符串替换
       if (toolArgs.includes(`"${CHAIN_RESULT}"`)) {
         // 如果CHAIN_RESULT在引号中，替换引号版本
-        finalArgs = toolArgs.replace(`"${CHAIN_RESULT}"`, `"${processedResult}"`);
+        finalArgs = toolArgs.replace(
+          `"${CHAIN_RESULT}"`,
+          `"${processedResult}"`
+        );
       } else {
         // 否则替换令牌
         finalArgs = toolArgs.replace(CHAIN_RESULT, processedResult);
@@ -138,7 +145,7 @@ class ChainExecutor {
         let processedResult = result;
         if (inputPath && i > 0 && result) {
           processedResult = this.applyJsonPath(result, inputPath);
-          
+
           // 如果结果不是对象，字符串化它
           if (typeof processedResult !== 'object' || processedResult === null) {
             processedResult = processedResult;
@@ -161,12 +168,15 @@ class ChainExecutor {
         logger.debug(`工具参数:`, finalArgs);
 
         // 调用工具
-        const toolResponse = await mcpClientManager.callTool(toolName, finalArgs);
+        const toolResponse = await mcpClientManager.callTool(
+          toolName,
+          finalArgs
+        );
 
         // 更新当前结果
         if (toolResponse.content && toolResponse.content.length > 0) {
           result = toolResponse.content[0].text;
-          
+
           // 应用输出路径（如果指定）
           if (outputPath) {
             result = this.applyJsonPath(result, outputPath);
@@ -179,16 +189,20 @@ class ChainExecutor {
 
         logger.debug(`工具 ${toolName} 执行成功`);
       } catch (error) {
-        logger.error(`工具链执行失败在步骤 ${i + 1} (${toolName}): ${error.message}`);
+        logger.error(
+          `工具链执行失败在步骤 ${i + 1} (${toolName}): ${error.message}`
+        );
         throw error;
       }
     }
 
     return {
-      content: [{
-        type: "text",
-        text: result
-      }]
+      content: [
+        {
+          type: 'text',
+          text: result,
+        },
+      ],
     };
   }
 
@@ -204,11 +218,11 @@ class ChainExecutor {
 
     for (let i = 0; i < mcpPath.length; i++) {
       const step = mcpPath[i];
-      
+
       if (!step.toolName) {
         throw new Error(`步骤 ${i + 1} 缺少工具名称`);
       }
-      
+
       if (!step.toolArgs) {
         throw new Error(`步骤 ${i + 1} 缺少工具参数`);
       }
@@ -217,7 +231,9 @@ class ChainExecutor {
       try {
         JSON.parse(step.toolArgs);
       } catch (error) {
-        throw new Error(`步骤 ${i + 1} 的工具参数不是有效的JSON: ${error.message}`);
+        throw new Error(
+          `步骤 ${i + 1} 的工具参数不是有效的JSON: ${error.message}`
+        );
       }
 
       // 验证工具是否存在
@@ -232,4 +248,4 @@ class ChainExecutor {
 // 创建单例实例
 const chainExecutor = new ChainExecutor();
 
-export default chainExecutor; 
+export default chainExecutor;

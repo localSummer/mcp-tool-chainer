@@ -24,7 +24,7 @@ class McpClientTransport {
       try {
         this.process = spawn(this.command, this.args, {
           env: this.env,
-          stdio: ['pipe', 'pipe', 'pipe']
+          stdio: ['pipe', 'pipe', 'pipe'],
         });
 
         this.process.on('error', (error) => {
@@ -81,7 +81,7 @@ class McpClientTransport {
 
       const id = this.nextId++;
       message.id = id;
-      
+
       this.messageHandlers.set(id, (response) => {
         if (response.error) {
           reject(new Error(response.error.message || '未知错误'));
@@ -116,8 +116,8 @@ class McpClientManager {
     this.clients = new Map();
     this.tools = new Map();
     this.serverInfo = {
-      name: "mcp_tool_chainer",
-      version: "1.0.0"
+      name: 'mcp_tool_chainer',
+      version: '1.0.0',
     };
   }
 
@@ -143,32 +143,34 @@ class McpClientManager {
 
       // 发送初始化请求
       const initResponse = await transport.send({
-        jsonrpc: "2.0",
-        method: "initialize",
+        jsonrpc: '2.0',
+        method: 'initialize',
         params: {
-          protocolVersion: "latest",
+          protocolVersion: 'latest',
           capabilities: {
-            tools: {}
+            tools: {},
           },
-          clientInfo: this.serverInfo
-        }
+          clientInfo: this.serverInfo,
+        },
       });
 
       if (initResponse.result && initResponse.result.serverInfo) {
         const serverInfo = initResponse.result.serverInfo;
-        
+
         // 跳过自己
-        if (serverInfo.name === this.serverInfo.name && 
-            serverInfo.version === this.serverInfo.version) {
+        if (
+          serverInfo.name === this.serverInfo.name &&
+          serverInfo.version === this.serverInfo.version
+        ) {
           await transport.close();
           return null;
         }
 
         // 获取工具列表
         const toolsResponse = await transport.send({
-          jsonrpc: "2.0",
-          method: "tools/list",
-          params: {}
+          jsonrpc: '2.0',
+          method: 'tools/list',
+          params: {},
         });
 
         if (toolsResponse.result && toolsResponse.result.tools) {
@@ -177,14 +179,14 @@ class McpClientManager {
             serverInfo,
             transport,
             tools: toolsResponse.result.tools,
-            config: serverConfig
+            config: serverConfig,
           };
 
           this.clients.set(serverKey, client);
-          
+
           // 注册工具
           this.registerToolsFromClient(client);
-          
+
           logger.info(`成功连接到MCP服务器: ${serverInfo.name} (${serverKey})`);
           return client;
         }
@@ -203,11 +205,11 @@ class McpClientManager {
    */
   registerToolsFromClient(client) {
     const formatName = (name) => name.replace(/-/g, '_');
-    
+
     for (const tool of client.tools) {
       const toolKey = `${formatName(client.serverInfo.name)}_${tool.name}`;
       const altKey = `${formatName(client.serverKey)}_${tool.name}`;
-      
+
       const toolInfo = {
         name: client.serverInfo.name,
         version: client.serverInfo.version,
@@ -216,9 +218,9 @@ class McpClientManager {
         clientTransportInitializer: {
           command: client.config.command,
           args: client.config.args,
-          env: client.config.env
+          env: client.config.env,
         },
-        client: client
+        client: client,
       };
 
       this.tools.set(toolKey, toolInfo);
@@ -234,7 +236,7 @@ class McpClientManager {
     try {
       // 清除现有工具
       this.tools.clear();
-      
+
       // 关闭现有连接
       for (const client of this.clients.values()) {
         await client.transport.close();
@@ -242,7 +244,7 @@ class McpClientManager {
       this.clients.clear();
 
       const servers = mcpConfigService.getOtherServers();
-      
+
       for (const [serverKey, serverConfig] of Object.entries(servers)) {
         try {
           await this.connectToServer(serverKey, serverConfig);
@@ -265,15 +267,17 @@ class McpClientManager {
   getAvailableTools() {
     const tools = [];
     const seen = new Set();
-    
+
     for (const toolInfo of this.tools.values()) {
-      const toolKey = `${mcpConfigService.formatServerName(toolInfo.name)}_${toolInfo.tool.name}`;
+      const toolKey = `${mcpConfigService.formatServerName(toolInfo.name)}_${
+        toolInfo.tool.name
+      }`;
       if (!seen.has(toolKey)) {
         tools.push(toolKey);
         seen.add(toolKey);
       }
     }
-    
+
     return tools;
   }
 
@@ -295,12 +299,12 @@ class McpClientManager {
 
     try {
       const response = await toolInfo.client.transport.send({
-        jsonrpc: "2.0",
-        method: "tools/call",
+        jsonrpc: '2.0',
+        method: 'tools/call',
         params: {
           name: toolInfo.tool.name,
-          arguments: args
-        }
+          arguments: args,
+        },
       });
 
       if (response.result) {
@@ -333,4 +337,4 @@ class McpClientManager {
 // 创建单例实例
 const mcpClientManager = new McpClientManager();
 
-export default mcpClientManager; 
+export default mcpClientManager;

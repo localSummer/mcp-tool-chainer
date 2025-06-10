@@ -1,5 +1,4 @@
 import fs from 'fs';
-import path from 'path';
 import { McpConfigSchema } from '../schemas/mcp-chain-schema.mjs';
 import logger from '../logger.mjs';
 
@@ -25,14 +24,16 @@ class McpConfigService {
 
       const configContent = fs.readFileSync(configPath, 'utf8');
       const rawConfig = JSON.parse(configContent);
-      
+
       // 使用zod验证配置
       this.config = McpConfigSchema.parse(rawConfig);
       this.configPath = configPath;
-      
+
       logger.info(`成功加载MCP配置文件: ${configPath}`);
-      logger.info(`发现 ${Object.keys(this.config.mcpServers).length} 个MCP服务器配置`);
-      
+      logger.info(
+        `发现 ${Object.keys(this.config.mcpServers).length} 个MCP服务器配置`
+      );
+
       return this.config;
     } catch (error) {
       logger.error(`加载MCP配置失败: ${error.message}`);
@@ -85,13 +86,13 @@ class McpConfigService {
   getOtherServers(excludeServerKey = 'mcp_tool_chainer') {
     const servers = this.getMcpServers();
     const filteredServers = {};
-    
+
     for (const [key, value] of Object.entries(servers)) {
       if (key !== excludeServerKey) {
         filteredServers[key] = value;
       }
     }
-    
+
     return filteredServers;
   }
 
@@ -100,7 +101,9 @@ class McpConfigService {
    * @returns {boolean} 配置是否有效
    */
   isConfigValid() {
-    return this.config !== null && Object.keys(this.config.mcpServers).length > 0;
+    return (
+      this.config !== null && Object.keys(this.config.mcpServers).length > 0
+    );
   }
 
   /**
@@ -127,4 +130,4 @@ class McpConfigService {
 // 创建单例实例
 const mcpConfigService = new McpConfigService();
 
-export default mcpConfigService; 
+export default mcpConfigService;

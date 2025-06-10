@@ -211,6 +211,92 @@ function withNormalizedProjectRoot(executeFn) {
   };
 }
 
+/**
+ * 创建统一的工具注册helper，提供标准化的错误处理和日志记录
+ * @param {Object} server - FastMCP server实例
+ * @param {Object} toolConfig - 工具配置对象
+ * @param {string} toolConfig.name - 工具名称
+ * @param {string} toolConfig.description - 工具描述
+ * @param {Object} toolConfig.parameters - Zod schema或其他验证schema
+ * @param {Function} toolConfig.execute - 工具执行函数
+ * @param {Object} [toolConfig.annotations] - 工具注解（可选）
+ */
+function registerTool(server, toolConfig) {
+  const { name, description, parameters, execute, annotations = {} } = toolConfig;
+  
+  server.addTool({
+    name,
+    description,
+    parameters,
+    annotations: {
+      // 默认注解
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+      ...annotations // 允许覆盖默认注解
+    },
+    execute: async (args, context) => {
+      const { log } = context;
+      
+      try {
+        log.info(`开始执行工具: ${name}`, { args });
+        
+        // 执行原始工具逻辑
+        const result = await execute(args, context);
+        
+        log.info(`工具执行完成: ${name}`);
+        
+        // 确保返回值符合FastMCP格式
+        if (typeof result === 'string') {
+          return result;
+        } else if (result && typeof result === 'object') {
+          return result;
+        } else {
+          return String(result);
+        }
+        
+      } catch (error) {
+        log.error(`工具执行失败: ${name}`, { 
+          error: error.message, 
+          stack: error.stack 
+        });
+        
+        // 根据FastMCP最佳实践，返回错误字符串而不是抛出异常
+        return `工具执行失败: ${error.message}`;
+      }
+    }
+  });
+  
+  // 记录工具注册成功
+  console.log(`已注册工具: ${name}`);
+}
+
+/**
+ * 创建标准的无参数工具注册helper
+ * @param {Object} server - FastMCP server实例
+ * @param {Object} toolConfig - 工具配置对象
+ * @param {string} toolConfig.name - 工具名称
+ * @param {string} toolConfig.description - 工具描述
+ * @param {Function} toolConfig.execute - 工具执行函数
+ * @param {Object} [toolConfig.annotations] - 工具注解（可选）
+ */
+function registerSimpleTool(server, toolConfig) {
+  const { name, description, execute, annotations = {} } = toolConfig;
+  
+  // 对于无参数工具，使用空对象作为parameters
+  registerTool(server, {
+    name,
+    description,
+    parameters: {}, // 空参数对象
+    execute,
+    annotations: {
+      readOnlyHint: true, // 无参数工具通常是只读的
+      ...annotations
+    }
+  });
+}
+
 export {
   withNormalizedProjectRoot,
   getRawProjectRootFromSession,
@@ -218,4 +304,6 @@ export {
   normalizeProjectRoot,
   createContentResponse,
   handleApiResult,
+  registerTool,
+  registerSimpleTool,
 };

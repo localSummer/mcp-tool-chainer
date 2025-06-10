@@ -27,15 +27,23 @@ class LPToolChainerMCPServer {
     this.options = {
       name: 'LP Tool Chainer MCP Server',
       version: packageJson.version,
+      // 添加现代FastMCP配置选项
+      instructions: '这是一个MCP工具链服务器，提供跨MCP服务器的工具链接和执行功能。可以将多个MCP工具串联执行，支持数据过滤和结果传递。',
+      // 启用根路径管理
+      roots: {
+        enabled: true
+      },
+      // 配置健康检查（当使用HTTP传输时）
+      health: {
+        enabled: true,
+        path: '/health',
+        message: 'MCP Tool Chainer Server is running'
+      }
     };
 
     this.server = new FastMCP(this.options);
     this.initialized = false;
     this.configPath = null;
-
-    // this.server.addResource({});
-
-    // this.server.addResourceTemplate({});
 
     // Bind methods
     this.init = this.init.bind(this);
